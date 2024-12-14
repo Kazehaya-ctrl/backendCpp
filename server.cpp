@@ -1,15 +1,24 @@
 #include<boost/asio.hpp>
+#include <nlohmann/json.hpp>
 #include<iostream>
 #include<string>
 
 using boost::asio::ip::tcp;
+using json = nlohmann::json;
 
-const std::string HTTP_RESPONSE = "HTTP/1.1 200 OK\r\n"
-	"Content-Type: Application/json\r\n"
-	"Content-Length: 13\r\n"
-	"\r\n"
-	"{msg: Hello, World!'}";
-  
+void send_request(tcp::socket& socket,const json& response_json) {
+	try {
+		std::string body = response_json.dump();
+		std::string response = 
+		"HTTP/1.1 200 OK\r\n" "Content-Type: application/json\r\n"  
+		"Content-Length: " + std::to_string(body.size()) + "\r\n\r\n" + body;
+
+		boost::asio::write(socket, boost::asio::buffer(response));
+	} catch (const std::exception& e) {
+		std::cerr << "Error + " << e.what() << std::endl;
+	}
+}
+
 void request_handler(tcp::socket& socket) {
 	try {
 		char buffer[1024];
@@ -18,9 +27,10 @@ void request_handler(tcp::socket& socket) {
 		size_t length = socket.read_some(boost::asio::buffer(buffer), error);
 
 		if(!error) {
+			json reponse = {{"msg", "Hello world"}};
 			request.append(buffer, length);
 			std::cout << "Request recieved " << request << std::endl;
-			boost::asio::write(socket, boost::asio::buffer(HTTP_RESPONSE), error);
+			send_request(socket, reponse);	
 			if(error) {
 				std::cerr << "Error: " << error << std::endl;
 			}
@@ -50,7 +60,6 @@ int main() {
 	} catch (const std::exception& e) {
 		std::cerr << "Error + " << e.what() << std::endl;
 	}
+	
 	return 0;
 }
-
-
